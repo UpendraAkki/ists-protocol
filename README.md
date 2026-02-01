@@ -18,6 +18,14 @@ Traditional browser storage is limited and inefficient. ISTS Protocol solves thi
 - **Lossless deduplication** via global ledger architecture
 - **Sub-5KB library** with zero dependencies
 
+## Demo
+
+Watch a live demo of the ISTS Protocol in action:
+
+[![ISTS Protocol Demo](https://img.youtube.com/vi/qFh1FceuZAc/maxresdefault.jpg)](https://youtu.be/qFh1FceuZAc)
+
+**[▶ Watch on YouTube](https://youtu.be/qFh1FceuZAc)** — See how the project works in a live web app (text compression, image compression, and persistent storage).
+
 ## Installation
 
 ```bash
@@ -315,6 +323,7 @@ MIT © ISTS Protocol Contributors
 - [API Documentation](./docs/API.md)
 - [Changelog](./CHANGELOG.md)
 - [NPM Package](https://www.npmjs.com/package/ists-protocol)
+
 
 ## Recognition
 
