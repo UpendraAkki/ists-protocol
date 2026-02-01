@@ -31,4 +31,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - API documentation
 - TypeScript definitions (ists.d.ts)
 
-[1.0.0]: https://github.com/yourusername/ists-protocol/releases/tag/v1.0.0
+[1.0.0]: https://github.com/UpendraAkki/ists-protocol/releases/tag/v1.0.0

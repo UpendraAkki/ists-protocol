@@ -22,7 +22,7 @@ Traditional browser storage is limited and inefficient. ISTS Protocol solves thi
 
 Watch a live demo of the ISTS Protocol in action:
 
-[![ISTS Protocol Demo](https://img.youtube.com/vi/qFh1FceuZAc/maxresdefault.jpg)](https://youtu.be/qFh1FceuZAc)
+[![ISTS Protocol Demo](ists-protocol.netlify.app)]
 
 **[▶ Watch on YouTube](https://youtu.be/qFh1FceuZAc)** — See how the project works in a live web app (text compression, image compression, and persistent storage).
 
@@ -106,6 +106,10 @@ ISTS uses a **dictionary-based vectorization** approach:
 3. **Vectorization**: Text is converted to a sequence of numeric coefficients
 4. **Compression**: Coefficients are compressed using LZ-String UTF-16 encoding
 
+![Global Ledger Deduplication](examples/assets/Global%20ledger%20Deduplication.png)
+
+*Figure 2: Global Ledger Deduplication — tokenization, ledger lookup, coefficient vector, and LZ-String compression.*
+
 **Example:**
 
 ```
@@ -128,6 +132,10 @@ For images, ISTS employs a **canvas-based WebP encoding** strategy:
 This achieves **80-90% reduction** compared to raw PNG/JPEG storage.
 
 ## Benchmarks
+
+![Compression Performance Comparison](examples/assets/text_image_comparison.png)
+
+*Figure 3: Text and image compression performance — ISTS vs original, PNG (gzip), and JPEG.*
 
 Performance comparison on various data types:
 

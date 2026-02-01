@@ -1,5 +1,5 @@
 // Type definitions for ists-protocol
-// Project: https://github.com/yourusername/ists-protocol
+// Project: https://github.com/UpendraAkki/ists-protocol
 // Definitions by: ISTS Protocol Contributors
 
 export = ISTS;
