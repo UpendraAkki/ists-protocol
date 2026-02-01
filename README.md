@@ -22,7 +22,7 @@ Traditional browser storage is limited and inefficient. ISTS Protocol solves thi
 
 Watch a live demo of the ISTS Protocol in action:
 
-[![ISTS Protocol Demo](ists-protocol.netlify.app)]
+[![ISTS Protocol Demo](https://ists-protocol.netlify.app)]
 
 **[▶ Watch on YouTube](https://youtu.be/qFh1FceuZAc)** — See how the project works in a live web app (text compression, image compression, and persistent storage).
 
