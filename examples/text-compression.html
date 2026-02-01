@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISTS Protocol - Text Compression Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-value.green {
+            color: #10b981;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ISTS Protocol</h1>
+            <p>Text Compression Demo - Achieve 80-95% Storage Reduction</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2>Input Text</h2>
+                <textarea id="inputText"
+                    placeholder="Enter or paste your text here...">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. ISTS Protocol achieves amazing compression ratios through global ledger deduplication. ISTS Protocol achieves amazing compression ratios through global ledger deduplication.</textarea>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="compressText()"><i class="fas fa-compress-alt"></i>
+                        Compress</button>
+                    <button class="btn-secondary" onclick="loadSample()"><i class="far fa-file-alt"></i> Load
+                        Sample</button>
+                    <button class="btn-secondary" onclick="clearAll()"><i class="fas fa-trash-alt"></i> Clear</button>
+                </div>
+            </div>
+
+            <div class="stats" id="stats" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-label">Original Size</div>
+                    <div class="stat-value" id="originalSize">0 B</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Compressed Size</div>
+                    <div class="stat-value" id="compressedSize">0 B</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Savings</div>
+                    <div class="stat-value green" id="savings">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ledger Entries</div>
+                    <div class="stat-value" id="ledgerEntries">0</div>
+                </div>
+            </div>
+
+            <div class="section" id="resultSection" style="display: none;">
+                <h2>✅ Compressed Output</h2>
+                <textarea id="compressedText" readonly></textarea>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="decompressText()"><i class="fas fa-unlock"></i>
+                        Decompress</button>
+                    <button class="btn-secondary" onclick="copyCompressed()"><i class="far fa-copy"></i> Copy</button>
+                </div>
+            </div>
+
+            <div class="section" id="decompressedSection" style="display: none;">
+                <h2>Decompressed Output</h2>
+                <textarea id="decompressedText" readonly></textarea>
+                <div class="alert alert-success">
+                    ✓ Text successfully decompressed! Verify it matches the original.
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>How it works:</strong> ISTS Protocol uses global ledger deduplication to convert text into
+                numeric vectors, then compresses those vectors. Repetitive text achieves higher compression ratios!
+            </div>
+        </div>
+    </div>
+
+    <script src="../ists.js"></script>
+    <script>
+        const ists = new ISTS();
+        let currentCompressed = null;
+
+        async function compressText() {
+            const input = document.getElementById('inputText').value;
+            if (!input.trim()) {
+                alert('Please enter some text to compress');
+                return;
+            }
+
+            // Load existing ledger
+            await ists.loadLedger();
+
+            // Compress
+            const result = ists.compressText(input);
+            currentCompressed = result.compressed;
+
+            // Save ledger
+            await ists.saveLedger();
+
+            // Display results
+            document.getElementById('compressedText').value = result.compressed;
+            document.getElementById('originalSize').textContent = ISTS.formatBytes(result.originalSize);
+            document.getElementById('compressedSize').textContent = ISTS.formatBytes(result.compressedSize);
+            document.getElementById('savings').textContent = result.savingsPercent + '%';
+
+            const stats = ists.getStats();
+            document.getElementById('ledgerEntries').textContent = stats.entries;
+
+            document.getElementById('stats').style.display = 'grid';
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('decompressedSection').style.display = 'none';
+        }
+
+        function decompressText() {
+            if (!currentCompressed) {
+                alert('Please compress text first');
+                return;
+            }
+
+            const decompressed = ists.decompressText(currentCompressed);
+            document.getElementById('decompressedText').value = decompressed;
+            document.getElementById('decompressedSection').style.display = 'block';
+        }
+
+        function loadSample() {
+            const sample = `The ISTS Protocol is a revolutionary compression algorithm. The ISTS Protocol achieves 80-95% compression ratios. 
+            
+Global ledger deduplication enables cross-session compression. Global ledger deduplication is the key innovation.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.
+
+Repetitive text compresses better! Repetitive text compresses better! Repetitive text compresses better!`;
+
+            document.getElementById('inputText').value = sample;
+        }
+
+        function clearAll() {
+            document.getElementById('inputText').value = '';
+            document.getElementById('compressedText').value = '';
+            document.getElementById('decompressedText').value = '';
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('decompressedSection').style.display = 'none';
+            currentCompressed = null;
+        }
+
+        function copyCompressed() {
+            const text = document.getElementById('compressedText');
+            text.select();
+            document.execCommand('copy');
+            alert('Compressed text copied to clipboard!');
+        }
+
+        // Load ledger on page load
+        window.addEventListener('load', async () => {
+            await ists.loadLedger();
+        });
+    </script>
+</body>
+
+</html>

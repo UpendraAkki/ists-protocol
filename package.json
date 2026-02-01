@@ -1,0 +1,52 @@
+{
+  "name": "ists-protocol",
+  "version": "1.0.0",
+  "description": "Client-side spatiotemporal vectorization for lossless data deduplication. Achieve 80-95% storage reduction with zero dependencies.",
+  "main": "ists.js",
+  "module": "ists.js",
+  "types": "ists.d.ts",
+  "files": [
+    "ists.js",
+    "ists.d.ts",
+    "README.md",
+    "LICENSE",
+    "WHITEPAPER.md"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "compression",
+    "storage",
+    "indexeddb",
+    "deduplication",
+    "vectorization",
+    "browser-storage",
+    "client-side",
+    "lossless",
+    "image-compression",
+    "text-compression",
+    "webp",
+    "lz-string",
+    "data-optimization"
+  ],
+  "author": "ISTS Protocol Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/ists-protocol.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/ists-protocol/issues"
+  },
+  "homepage": "https://github.com/yourusername/ists-protocol#readme",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions"
+  ]
+}
