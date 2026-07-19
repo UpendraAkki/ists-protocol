@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compress → Image</title>
+<style>
+  :root {
+    --paper:#F3EFE6; --surface:#FBF9F4; --surface-2:#F6F2E9; --border:#E3DBCC;
+    --ink:#26231E; --muted:#736C60; --faint:#9A9184;
+    --accent:#C4623F; --accent-deep:#9E4A2C; --accent-wash:#F4E3DB;
+    --good:#4F7A4A; --good-wash:#E4EEDF; --warn:#B07A2E; --warn-wash:#F5EAD6;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", "Georgia", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --shadow: 0 1px 2px rgba(38,35,30,.05), 0 6px 20px rgba(38,35,30,.06);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#211F1B; --surface:#2A2823; --surface-2:#302D27; --border:#3D3A33;
+      --ink:#EDE8DE; --muted:#B0A99C; --faint:#7E7669;
+      --accent:#E0805C; --accent-deep:#C4623F; --accent-wash:#3A2C25;
+      --good:#8FB884; --good-wash:#2C3A28; --warn:#D6A65C; --warn-wash:#38301F;
+      --shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.28); }
+  }
+  :root[data-theme="light"] { --paper:#F3EFE6; --surface:#FBF9F4; --surface-2:#F6F2E9; --border:#E3DBCC;
+    --ink:#26231E; --muted:#736C60; --faint:#9A9184; --accent:#C4623F; --accent-deep:#9E4A2C; --accent-wash:#F4E3DB;
+    --good:#4F7A4A; --good-wash:#E4EEDF; --warn:#B07A2E; --warn-wash:#F5EAD6;
+    --shadow:0 1px 2px rgba(38,35,30,.05),0 6px 20px rgba(38,35,30,.06); }
+  :root[data-theme="dark"] { --paper:#211F1B; --surface:#2A2823; --surface-2:#302D27; --border:#3D3A33;
+    --ink:#EDE8DE; --muted:#B0A99C; --faint:#7E7669; --accent:#E0805C; --accent-deep:#C4623F; --accent-wash:#3A2C25;
+    --good:#8FB884; --good-wash:#2C3A28; --warn:#D6A65C; --warn-wash:#38301F;
+    --shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.28); }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.55; font-size:16px; letter-spacing:-0.005em; }
+  .wrap { max-width:900px; margin:0 auto; padding:34px 24px 96px; }
+  nav { display:flex; gap:18px; margin-bottom:22px; font-size:14px; }
+  nav a { color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--accent-deep); }
+  nav a.here { color:var(--ink); font-weight:600; }
+
+  .eyebrow { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent-deep); font-weight:600; margin:0 0 10px; }
+  h1 { font-family:var(--serif); font-weight:600; font-size:clamp(30px,5vw,42px); line-height:1.08; margin:0 0 12px; text-wrap:balance; letter-spacing:-0.02em; }
+  .lede { color:var(--muted); font-size:17px; max-width:62ch; margin:0; }
+  .lede b { color:var(--ink); font-weight:600; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:24px; margin-top:20px; }
+  .out-label { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 8px; }
+  textarea { width:100%; min-height:120px; resize:vertical; background:var(--surface-2); color:var(--ink); border:1px solid var(--border); border-radius:10px; padding:14px 16px; font-family:var(--mono); font-size:13.5px; line-height:1.55; }
+  textarea:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent); }
+  .samples { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .chip { font:inherit; font-size:13px; cursor:pointer; background:var(--surface); color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:6px 13px; }
+  .chip:hover { color:var(--accent-deep); border-color:var(--accent); background:var(--accent-wash); }
+  .chip.file { display:inline-flex; align-items:center; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:14px; }
+  .btn { font:inherit; font-weight:600; cursor:pointer; color:#fff; background:var(--accent); border:1px solid var(--accent-deep); border-radius:10px; padding:11px 22px; font-size:15px; transition:background .15s, transform .05s; }
+  .btn:hover { background:var(--accent-deep); } .btn:active { transform:translateY(1px); }
+  .btn.ghost { background:var(--surface); color:var(--accent-deep); }
+  .btn.ghost:hover { background:var(--accent-wash); }
+  .btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .count { color:var(--faint); font-size:13px; font-variant-numeric:tabular-nums; margin-left:auto; }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:20px; }
+  @media (max-width:720px){ .stats { grid-template-columns:repeat(2,1fr);} }
+  .stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .stat .label { font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin-bottom:6px; }
+  .stat .value { font-family:var(--serif); font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1; }
+  .stat .sub { font-size:12px; color:var(--faint); margin-top:5px; }
+  .stat.hero .value { color:var(--accent); } .stat.hero.loss .value { color:var(--warn); }
+  .stat.method .value { font-size:20px; text-transform:uppercase; letter-spacing:.02em; }
+
+  .cands { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .cand { font-family:var(--mono); font-size:12.5px; padding:6px 11px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border); color:var(--muted); }
+  .cand.win { background:var(--accent-wash); border-color:var(--accent); color:var(--accent-deep); font-weight:600; }
+  .cand b { color:var(--ink); font-weight:600; } .cand.win b { color:var(--accent-deep); }
+
+  .imgwrap { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:20px; }
+  .glyph-frame { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:14px; flex:none; }
+  img.glyph { image-rendering:pixelated; display:block; border-radius:3px; box-shadow:0 0 0 1px rgba(0,0,0,.08); }
+  .info { flex:1; min-width:240px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:5px 18px; font-size:14px; margin:0 0 14px; }
+  .kv dt { color:var(--muted); } .kv dd { margin:0; font-family:var(--mono); font-variant-numeric:tabular-nums; word-break:break-word; }
+
+  .badge { display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border-radius:9px; font-weight:600; font-size:14px; margin-top:4px; }
+  .badge.ok { background:var(--good-wash); color:var(--good); border:1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+  .badge.err { background:var(--accent-wash); color:var(--accent-deep); border:1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  .badge svg { flex:none; }
+  .recovered { font-family:var(--mono); font-size:13px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; white-space:pre-wrap; word-break:break-word; margin-top:12px; max-height:220px; overflow:auto; }
+
+  .note { margin-top:28px; border-left:3px solid var(--accent); background:var(--accent-wash); border-radius:0 12px 12px 0; padding:18px 22px; }
+  .note h3 { font-family:var(--serif); font-size:17px; margin:0 0 8px; }
+  .note p { margin:0 0 8px; font-size:14.5px; color:var(--ink); } .note p:last-child { margin-bottom:0; }
+  .note code { font-family:var(--mono); font-size:13px; background:var(--surface); padding:1px 5px; border-radius:4px; border:1px solid var(--border); }
+  footer { margin-top:40px; color:var(--faint); font-size:13px; text-align:center; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a href="index.html">Text compressor</a>
+    <a href="video.html">Video vault</a>
+    <a href="compress.html" class="here">Compress → Image</a>
+  </nav>
+
+  <p class="eyebrow">Compress first · then paint · lossless</p>
+  <h1>Compress → Image</h1>
+  <p class="lede">
+    First the text (or any file) is <b>compressed</b> — the engine tries a dictionary coder, an
+    arithmetic coder, and their combination, and keeps whichever is smallest. Then that small result is
+    <b>painted into a picture</b>. A long document becomes a tiny image you can reload to get every byte back.
+  </p>
+
+  <section class="card">
+    <label class="out-label" for="input" style="margin-top:0">Text to compress</label>
+    <textarea id="input" spellcheck="false"></textarea>
+    <div class="samples" id="samples"></div>
+    <div class="row">
+      <button class="btn" id="run">Compress → image</button>
+      <label class="chip file" style="cursor:pointer">Compress a file instead
+        <input type="file" id="fileInput" hidden /></label>
+      <span class="count" id="count"></span>
+    </div>
+  </section>
+
+  <div id="results" class="hidden">
+    <div class="stats" id="stats"></div>
+    <div class="cands" id="cands"></div>
+
+    <section class="card">
+      <div class="out-label" style="margin-top:0">The compressed data, painted as an image</div>
+      <div class="imgwrap">
+        <div class="glyph-frame"><img class="glyph" id="glyphImg" alt="the compressed data as pixels" /></div>
+        <div class="info">
+          <dl class="kv" id="imgInfo"></dl>
+          <div id="verify"></div>
+          <div class="row" style="margin-top:14px">
+            <button class="btn" id="download" type="button">Download .png</button>
+            <label class="chip file" style="cursor:pointer">Load a .png to restore
+              <input type="file" id="loadimg" accept="image/png" hidden /></label>
+          </div>
+          <div id="restored"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="note">
+    <h3>What this does and doesn't do</h3>
+    <p>The image is small because the <b>data was compressed first</b>. Compression only works on
+      redundancy: long text, logs, JSON, DNA, raw/uncompressed files shrink a lot. Already-compressed inputs
+      (<code>.mp4</code>, <code>.jpg</code>, <code>.zip</code>) are near-random and won't shrink — the engine
+      then stores them <code>raw</code>, so the result is never larger than the input plus a few bytes.</p>
+    <p>Every result here is <b>lossless</b>: loading the PNG rebuilds the original byte-for-byte, verified live.</p>
+  </div>
+
+  <footer>compress (lzw / order-1 / combined) → pack bytes into pixels → PNG · all in your browser</footer>
+</div>
+
+<script src="lzw.js"></script>
+<script src="range.js"></script>
+<script src="pack.js"></script>
+<script src="filecodec.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const input = $('input');
+  let sourceKind = 'text';           // 'text' | 'file'
+  let fileMeta = null;               // { name, mime, bytes } when a file is loaded
+  let lastPngBlob = null;
+
+  const SAMPLES = {
+    'Long article': ('Compression turns structure into brevity. The more a message repeats itself, the more ' +
+      'a good compressor can fold it down. Natural language repeats constantly: the same words, the same ' +
+      'phrases, the same rhythms. ').repeat(30),
+    'Config / JSON': JSON.stringify({ service: 'api', region: 'us-east-1', retries: 3, tags: ['prod', 'edge'], enabled: true }, null, 2).repeat(40),
+    'DNA': (function () { const b = 'ACGT'; let s = ''; for (let i = 0; i < 4000; i++) s += b[(i * 7 + (i >> 2)) % 4]; return s; })(),
+    'Short note': 'meet at 6, bring the plans'
+  };
+
+  const sw = $('samples');
+  Object.keys(SAMPLES).forEach(name => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.type = 'button'; b.textContent = name;
+    b.addEventListener('click', () => { input.value = SAMPLES[name]; sourceKind = 'text'; fileMeta = null; updateCount(); run(); });
+    sw.appendChild(b);
+  });
+  input.value = SAMPLES['Long article'];
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+  function updateCount() {
+    if (sourceKind === 'file' && fileMeta) $('count').textContent = fileMeta.name + ' · ' + fmtBytes(fileMeta.bytes.length);
+    else { const n = new TextEncoder().encode(input.value).length; $('count').textContent = fmtBytes(n); }
+  }
+  input.addEventListener('input', () => { sourceKind = 'text'; fileMeta = null; updateCount(); });
+
+  function icon(kind) {
+    if (kind === 'check') return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+    return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+  }
+  function kv(k, v) { return '<dt>' + k + '</dt><dd>' + v + '</dd>'; }
+  function tile(label, value, sub) {
+    return '<div class="stat"><div class="label">' + label + '</div><div class="value">' +
+      value + '</div><div class="sub">' + sub + '</div></div>';
+  }
+  function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+
+  function currentSource() {
+    if (sourceKind === 'file' && fileMeta) return { bytes: fileMeta.bytes, name: fileMeta.name, mime: fileMeta.mime, isText: false };
+    const bytes = new TextEncoder().encode(input.value);
+    return { bytes, name: 'message.txt', mime: 'text/plain', isText: true };
+  }
+
+  function run() {
+    const src = currentSource();
+    const r = Pack.compressBytes(src.bytes);
+
+    // paint compressed bytes into an image; remember the real mime with a marker
+    const img = FileVault.fileToImage(r.packed, src.name, 'pack:' + src.mime);
+    const cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    const ctx = cv.getContext('2d');
+    const id = ctx.createImageData(img.width, img.height);
+    id.data.set(img.rgba); ctx.putImageData(id, 0, 0);
+
+    cv.toBlob(blob => {
+      lastPngBlob = blob;
+      if ($('glyphImg').src) URL.revokeObjectURL($('glyphImg').src);
+      const url = URL.createObjectURL(blob);
+      $('glyphImg').src = url;
+      const scale = Math.max(1, Math.round(220 / Math.max(img.width, img.height)));
+      $('glyphImg').width = img.width * scale;
+      $('glyphImg').height = img.height * scale;
+
+      const orig = src.bytes.length;
+      const png = blob.size;
+      const factor = png > 0 ? (orig / png) : 0;
+      $('imgInfo').innerHTML =
+        kv('Image', img.width + ' × ' + img.height + ' px') +
+        kv('Original', fmtBytes(orig)) +
+        kv('PNG image', '<b>' + fmtBytes(png) + '</b>') +
+        kv('Smaller by', orig ? (factor >= 1 ? factor.toFixed(1) + '× smaller' : 'no gain (already compact)') : '—');
+
+      // verify lossless: decode png -> compressed -> decompress -> compare
+      verify(blob, src.bytes);
+    }, 'image/png');
+
+    // stats + candidates
+    const saved = src.bytes.length ? (1 - r.packed.length / src.bytes.length) * 100 : 0;
+    const loss = saved < 0;
+    $('stats').innerHTML =
+      tile('Original', fmtBytes(src.bytes.length), src.isText ? 'text' : 'file') +
+      tile('Compressed', fmtBytes(r.packed.length), 'before image') +
+      '<div class="stat hero ' + (loss ? 'loss' : '') + '"><div class="label">' + (loss ? 'Grew' : 'Saved') +
+        '</div><div class="value">' + Math.abs(saved).toFixed(1) + '%</div><div class="sub">by compression</div></div>' +
+      '<div class="stat method"><div class="label">Method</div><div class="value">' + r.method +
+        '</div><div class="sub">chosen automatically</div></div>';
+
+    $('cands').innerHTML = r.candidates.map(c =>
+      '<span class="cand' + (c.name === r.method ? ' win' : '') + '">' + c.name + ' <b>' + fmtBytes(c.bytes) + '</b></span>'
+    ).join('') + '<span class="cand" style="border:none;background:none">← smallest wins</span>';
+
+    $('results').classList.remove('hidden');
+    $('restored').innerHTML = '';
+  }
+
+  function verify(pngBlob, origBytes) {
+    const url = URL.createObjectURL(pngBlob);
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+      const data = x.getImageData(0, 0, c.width, c.height).data;
+      URL.revokeObjectURL(url);
+      try {
+        const out = FileVault.imageToFile(data, c.width, c.height);
+        const restored = Pack.decompressBytes(out.bytes);
+        let same = restored.length === origBytes.length;
+        if (same) for (let i = 0; i < origBytes.length; i++) if (restored[i] !== origBytes[i]) { same = false; break; }
+        $('verify').innerHTML = same
+          ? '<div class="badge ok">' + icon('check') + 'Lossless — the image rebuilds the original exactly (' + fmtBytes(origBytes.length) + ').</div>'
+          : '<div class="badge err">' + icon('warn') + 'Verification mismatch.</div>';
+      } catch (e) { $('verify').innerHTML = '<div class="badge err">' + icon('warn') + esc(e.message) + '</div>'; }
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); };
+    im.src = url;
+  }
+
+  // ---- load a file to compress ----
+  $('fileInput').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const buf = await f.arrayBuffer();
+    fileMeta = { name: f.name, mime: f.type || 'application/octet-stream', bytes: new Uint8Array(buf) };
+    sourceKind = 'file'; updateCount(); run();
+    e.target.value = '';
+  });
+
+  // ---- restore from a png ----
+  $('loadimg').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const url = URL.createObjectURL(f);
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+      const data = x.getImageData(0, 0, c.width, c.height).data;
+      URL.revokeObjectURL(url);
+      try {
+        const out = FileVault.imageToFile(data, c.width, c.height);
+        const isPack = out.mime.indexOf('pack:') === 0;
+        const realMime = isPack ? out.mime.slice(5) : out.mime;
+        const original = isPack ? Pack.decompressBytes(out.bytes) : out.bytes;
+        if (realMime === 'text/plain') {
+          $('restored').innerHTML = '<div class="out-label" style="margin-top:18px">Restored text</div>' +
+            '<div class="recovered">' + esc(new TextDecoder().decode(original)) + '</div>';
+        } else {
+          const blob = new Blob([original], { type: realMime });
+          const durl = URL.createObjectURL(blob);
+          $('restored').innerHTML = '<div class="badge ok" style="margin-top:16px">' + icon('check') +
+            'Restored ' + esc(out.name) + ' (' + fmtBytes(original.length) + ').</div>' +
+            '<div class="row" style="margin-top:12px"><a class="btn" href="' + durl + '" download="' + esc(out.name) + '">Download ' + esc(out.name) + '</a></div>';
+        }
+      } catch (err) {
+        $('restored').innerHTML = '<div class="badge err" style="margin-top:16px">' + icon('warn') + esc(err.message) + '</div>';
+      }
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); };
+    im.src = url;
+    e.target.value = '';
+  });
+
+  $('download').addEventListener('click', () => {
+    if (!lastPngBlob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(lastPngBlob);
+    a.download = (currentSource().name.replace(/\.[^.]+$/, '') || 'compressed') + '.png';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  });
+
+  $('run').addEventListener('click', () => { sourceKind = (fileMeta && sourceKind === 'file') ? 'file' : 'text'; run(); });
+  updateCount();
+  run();
+})();
+</script>
+</body>
+</html>
