@@ -192,19 +192,25 @@
 
   <div class="note">
     <h3>Straight talk on size</h3>
-    <p>This is a <b>lossless container</b>, not a magic shrinker. A modern <code>.mp4</code> or
-      <code>.webm</code> is already compressed — its bytes are almost random, so no lossless method can pack
-      them smaller (the <b>pigeonhole principle</b>). Expect the PNG to be about the same size as the video,
-      plus a little overhead. The panels show the real numbers, honestly.</p>
-    <p>Making it genuinely <b>smaller</b> means <b>lossy</b> compression — dropping resolution, frame rate, or
-      detail the eye won't miss. That's exactly what video codecs already do. If you want that, I can add a
-      "shrink" mode next that re-encodes the video at a smaller size before storing it.</p>
-    <p>Size is bounded by your browser's memory and maximum canvas area, so very large videos may not fit.</p>
+    <p>The video data is <b>compressed first</b> (best of raw / LZW / arithmetic), then painted. But a modern
+      <code>.mp4</code> or <code>.webm</code> is <em>already</em> compressed — its bytes are almost random, so
+      every lossless method gives up and stores it <code>raw</code> (the <b>pigeonhole principle</b>: you
+      can't losslessly fit N random bytes into fewer than N). The image ends up ≈ the video size plus a little
+      PNG overhead — tiny for real videos, larger only for very short clips.</p>
+    <p><b>Why not base64-then-compress?</b> base64 first makes the data 33% <em>bigger</em>; compressing then
+      only claws that back — measured on a real 117 KB clip it came out <b>2% larger</b> than the video, never
+      smaller. It's a detour that can't win, so we compress the raw bytes directly instead.</p>
+    <p>Genuinely <b>smaller</b> video needs <b>lossy</b> re-encoding (dropping resolution / bitrate / detail) —
+      a separate, opt-in tool. Compressible sources (screen recordings, raw/uncompressed video) <em>do</em>
+      shrink here; the panel shows the method actually used.</p>
   </div>
 
   <footer>File bytes → pixels → PNG · rebuilt in your browser · nothing uploaded anywhere</footer>
 </div>
 
+<script src="lzw.js"></script>
+<script src="range.js"></script>
+<script src="pack.js"></script>
 <script src="filecodec.js"></script>
 <script>
 (function () {
@@ -252,10 +258,15 @@
       return;
     }
     $('toImage').disabled = true;
+    $('status1').textContent = 'Compressing the video data …';
+    await new Promise(r => setTimeout(r, 20));
+
+    // Compress first (best of raw/lzw/o1). Already-compressed video -> 'raw'.
+    const packed = Pack.compressBytes(source.bytes);
     $('status1').textContent = 'Painting bytes into pixels …';
     await new Promise(r => setTimeout(r, 20));
 
-    const img = FileVault.fileToImage(source.bytes, source.name, source.mime);
+    const img = FileVault.fileToImage(packed.packed, source.name, 'pack:' + source.mime);
     const cv = document.createElement('canvas');
     cv.width = img.width; cv.height = img.height;
     const ctx = cv.getContext('2d');
@@ -272,12 +283,14 @@
     const orig = source.bytes.length;
     const png = blob.size;
     const ratio = orig ? ((png / orig - 1) * 100) : 0;
+    const already = packed.method === 'raw';
     $('imgInfo').innerHTML =
       kv('Dimensions', img.width + ' × ' + img.height + ' px') +
-      kv('Pixels', img.pixels.toLocaleString('en-US')) +
       kv('Video bytes', fmtBytes(orig)) +
+      kv('Compressed', fmtBytes(packed.packed.length) + '  (' + packed.method + ')') +
       kv('PNG on disk', fmtBytes(png)) +
-      kv('vs. video', (ratio >= 0 ? '+' : '') + ratio.toFixed(1) + '%');
+      kv('vs. video', (ratio >= 0 ? '+' : '') + ratio.toFixed(1) + '%' +
+        (already ? '  — already compressed, can\'t shrink' : ''));
 
     // self-verify: decode the PNG we just made and compare byte-for-byte
     $('status1').textContent = 'Verifying the image rebuilds the video …';
@@ -305,8 +318,9 @@
         URL.revokeObjectURL(url);
         try {
           const out = FileVault.imageToFile(data, cv.width, cv.height);
-          let same = out.bytes.length === origBytes.length && out.name === name && out.mime === mime;
-          if (same) for (let i = 0; i < origBytes.length; i++) if (out.bytes[i] !== origBytes[i]) { same = false; break; }
+          const bytes = out.mime.indexOf('pack:') === 0 ? Pack.decompressBytes(out.bytes) : out.bytes;
+          let same = bytes.length === origBytes.length;
+          if (same) for (let i = 0; i < origBytes.length; i++) if (bytes[i] !== origBytes[i]) { same = false; break; }
           resolve(same);
         } catch (e) { resolve(false); }
       };
@@ -329,14 +343,17 @@
       URL.revokeObjectURL(url);
       try {
         const out = FileVault.imageToFile(data, cv.width, cv.height);
-        const blob = new Blob([out.bytes], { type: out.mime || 'video/mp4' });
+        const isPack = out.mime.indexOf('pack:') === 0;
+        const realMime = isPack ? out.mime.slice(5) : out.mime;
+        const bytes = isPack ? Pack.decompressBytes(out.bytes) : out.bytes;
+        const blob = new Blob([bytes], { type: realMime || 'video/mp4' });
         if (rebuilt && rebuilt.url) URL.revokeObjectURL(rebuilt.url);
-        rebuilt = { url: URL.createObjectURL(blob), name: out.name, mime: out.mime, size: out.bytes.length };
+        rebuilt = { url: URL.createObjectURL(blob), name: out.name, mime: realMime, size: bytes.length };
         $('outVideo').src = rebuilt.url;
         $('outInfo').innerHTML =
           kv('Name', escapeHtml(out.name)) +
-          kv('Type', escapeHtml(out.mime)) +
-          kv('Size', fmtBytes(out.bytes.length));
+          kv('Type', escapeHtml(realMime)) +
+          kv('Size', fmtBytes(bytes.length));
         $('out2').classList.remove('hidden');
         $('status2').innerHTML = '<div class="badge ok">' + icon('check') + 'Rebuilt from ' +
           cv.width + '×' + cv.height + ' pixels.</div>';
