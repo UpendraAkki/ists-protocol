@@ -1,344 +1,117 @@
-# ISTS Protocol
+# Positional Base-N Compressor
 
-[![npm version](https://img.shields.io/npm/v/ists-protocol.svg)](https://www.npmjs.com/package/ists-protocol)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Size](https://img.shields.io/bundlephobia/minzip/ists-protocol)](https://bundlephobia.com/package/ists-protocol)
+A from-scratch, dependency-free **lossless text compressor** — no zlib, no gzip, no
+LZ library. It compresses by turning your message into a single big number and
+storing that number in as few bytes as possible.
 
-> **Store 100MB of data in 10MB of browser storage.**
+> **Try it:** run a static server in this folder and open `index.html`
+> (see [Run it](#run-it)). Every step is shown visually.
 
-The **ISTS Protocol** (Isotropic Spatiotemporal Tensor-Spline) is a revolutionary client-side compression algorithm that achieves **80-95% storage reduction** through dictionary-based vectorization and perceptual encoding.
+## The idea
 
-## The Hook
+This is the exact pipeline the project set out to build:
 
-Traditional browser storage is limited and inefficient. ISTS Protocol solves this by:
+1. **Give each character a code.** Scan the message and collect only the
+   *distinct* characters it uses. That set is the alphabet; its size is the
+   **base `B`**. Each character gets a code `0 … B−1`.
+2. **Fold every code into one number (the formula).** Read the message as the
+   digits of a single number written in base `B`:
 
-- **91% compression** on repetitive text data
-- **85% compression** on PNG/JPEG images  
-- **Zero server dependency** - everything runs client-side
-- **Lossless deduplication** via global ledger architecture
-- **Sub-5KB library** with zero dependencies
+   ```
+   N = c₀·B⁰ + c₁·B¹ + c₂·B² + … + c_(L−1)·B^(L−1)
+   ```
 
-## Demo
+   `c₀` is the first character's code, `c₁` the second, and so on. `N` is one
+   exact integer (computed with `BigInt`) that represents the whole message.
+3. **Store `N` as bytes.** Written in base 256, `N` needs about `log₂(B)` bits
+   per character instead of the usual 8. When `B < 256`, that's fewer bytes than
+   the original. A tiny header (the alphabet + the length) makes the output
+   self-contained.
+4. **Decode.** Peel the digits back off with repeated divide-and-remainder by
+   `B` (`c = N mod B`, then `N = N ÷ B`), and map each code back to its
+   character. The result is byte-for-byte identical to the input.
+5. **Store it as an image.** The compressed bytes are painted into pixels —
+   three bytes per pixel across the R, G, B channels (alpha stays 255 so the
+   canvas never premultiplies and loses data). A 6-byte lead-in (magic tag +
+   length) lets the engine find the payload again. Save the PNG and the message
+   is a picture; load the PNG back and the pixels rebuild the number and the
+   text — losslessly. To anything but this engine it looks like colored noise.
 
-Watch a live demo of the ISTS Protocol in action:
+   > The PNG *container* has ~100 bytes of fixed overhead, so a tiny message
+   > makes a file bigger than the text. The image wins on longer input, where
+   > PNG's own lossless (DEFLATE) pass compounds the base-N compression.
 
-- **[▶ Try the live demo](https://ists-protocol.netlify.app)** — Use the demo web app (text compression, image compression, persistent storage).
-- **[▶ Watch on YouTube](https://youtu.be/qFh1FceuZAc)** — Video walkthrough of how the project works.
+## How well it compresses
 
-## Installation
+Real numbers from `test.js` (savings vs. UTF-8):
+
+| Input                    | Original | Compressed | Saved |
+|--------------------------|---------:|-----------:|------:|
+| Single repeated char ×200|    200 B |        6 B | 97.0% |
+| Repetitive `abab…`       |     54 B |       13 B | 75.9% |
+| Pseudo-DNA (4 symbols)   |    400 B |      109 B | 72.8% |
+| Digits only              |     64 B |       41 B | 35.9% |
+| English paragraph        |    182 B |      153 B | 15.9% |
+| Emoji + text             |     70 B |       67 B |  4.3% |
+
+The win comes entirely from the alphabet being smaller than 256. Small-alphabet
+text (DNA, repeated strings) shrinks a lot; text that already uses many
+byte-values (random data, dense emoji) barely shrinks.
+
+## Honest limits
+
+- **It can't shrink everything.** No lossless method can — distinct messages need
+  distinct outputs, and there aren't enough shorter ones to go around (the
+  *pigeonhole principle*).
+- **You can't run it on its own output to keep shrinking.** Once the redundancy is
+  gone, a second pass only adds header overhead and grows the data.
+- The `Limit` readout in the UI is the order-0 **Shannon entropy** — the
+  theoretical floor for this kind of model.
+
+## Run it
 
 ```bash
-npm install ists-protocol
+# from the project folder
+python -m http.server 8000
+# then open http://localhost:8000/index.html
 ```
 
-Or use via CDN:
+Run the correctness tests with Node (no dependencies):
 
-```html
-<script src="https://unpkg.com/ists-protocol/ists.js"></script>
+```bash
+node test.js
 ```
 
-## Quick Start
+## Files
 
-### Text Compression
+| File         | What it is |
+|--------------|------------|
+| `codec.js`   | The algorithm — `encode`, `decodePayload`, `decodeBase64` (browser + Node) |
+| `index.html` | Claude-themed step-by-step visualizer |
+| `test.js`    | Round-trip + compression tests |
 
-```javascript
-import ISTS from 'ists-protocol';
+## API
 
-const ists = new ISTS();
+```js
+const PBC = require('./codec.js'); // or window.PBC in the browser
 
-// Compress text
-const result = ists.compressText("Your large text data here...");
-console.log(`Saved ${result.savingsPercent}%`);
-// Output: Saved 91.2%
+const e = PBC.encode('hello hello hello');
+e.base64;                 // the compressed message (self-contained)
+e.savingsPercent;         // how much smaller
+e.N;                      // the big-number coefficient (BigInt)
 
-// Decompress
-const original = ists.decompressText(result.compressed);
+const back = PBC.decodeBase64(e.base64);
+back.text === 'hello hello hello'; // true
+
+// store as an image, then read it back
+const img = PBC.payloadToImage(e.payload);      // { width, height, rgba, ... }
+const payload = PBC.imageToPayload(img.rgba, img.width, img.height);
+PBC.decodePayload(payload).text === 'hello hello hello'; // true
 ```
 
-### Image Compression
-
-```javascript
-const ists = new ISTS();
-
-// Compress image file
-const fileInput = document.querySelector('input[type="file"]');
-const file = fileInput.files[0];
-
-const result = await ists.compressImage(file);
-console.log(`Original: ${ISTS.formatBytes(result.originalSize)}`);
-console.log(`Compressed: ${ISTS.formatBytes(result.compressedSize)}`);
-console.log(`Savings: ${result.savingsPercent}%`);
-
-// Restore image
-const dataURL = ists.decompressImage(result.compressed, result.mime);
-document.querySelector('img').src = dataURL;
-```
-
-### Persistent Storage with IndexedDB
-
-```javascript
-const ists = new ISTS();
-
-// Load existing ledger
-await ists.loadLedger();
-
-// Compress and save
-const compressed = ists.compressText("Data to store");
-await ists.storage.set('myData', compressed.compressed);
-
-// Save ledger for future sessions
-await ists.saveLedger();
-
-// Later: retrieve and decompress
-const stored = await ists.storage.get('myData');
-const original = ists.decompressText(stored);
-```
-
-## How It Works
-
-### Global Ledger Deduplication
-
-ISTS uses a **dictionary-based vectorization** approach:
-
-1. **Tokenization**: Text is split into tokens (words, numbers, symbols)
-2. **Ledger Mapping**: Each unique token is assigned a numeric ID in a global ledger
-3. **Vectorization**: Text is converted to a sequence of numeric coefficients
-4. **Compression**: Coefficients are compressed using LZ-String UTF-16 encoding
-
-![Global Ledger Deduplication](examples/assets/Global%20ledger%20Deduplication.png)
-
-*Figure 2: Global Ledger Deduplication — tokenization, ledger lookup, coefficient vector, and LZ-String compression.*
-
-**Example:**
-
-```
-Input:  "hello world hello"
-Tokens: ["hello", " ", "world", " ", "hello"]
-Ledger: {"hello": 0, " ": 1, "world": 2}
-Vector: [0, 1, 2, 1, 0]
-Result: Compressed coefficient string
-```
-
-### Perceptual Image Vectorization
-
-For images, ISTS employs a **canvas-based WebP encoding** strategy:
-
-1. **Canvas Rendering**: Image is drawn to HTML5 Canvas
-2. **WebP Encoding**: Canvas exports to WebP format at 85% quality (perceptually lossless)
-3. **Base64 Conversion**: Binary data converted to Base64 string
-4. **LZ Compression**: Base64 string compressed with LZ-String
-
-This achieves **80-90% reduction** compared to raw PNG/JPEG storage.
-
-## Benchmarks
-
-![Compression Performance Comparison](examples/assets/text_image_comparison.png)
-
-*Figure 3: Text and image compression performance — ISTS vs original, PNG (gzip), and JPEG.*
-
-Performance comparison on various data types:
-
-| Data Type | Original Size | ISTS Compressed | Savings | Method |
-|-----------|--------------|-----------------|---------|--------|
-| Repetitive Text | 1.2 MB | 108 KB | **91%** | Global Ledger |
-| JSON Data | 850 KB | 127 KB | **85%** | Global Ledger |
-| PNG Image | 2.4 MB | 312 KB | **87%** | Canvas WebP |
-| JPEG Image | 1.8 MB | 298 KB | **83%** | Canvas WebP |
-| Mixed Content | 5.0 MB | 620 KB | **88%** | Hybrid |
-
-**vs. LocalStorage Raw**: 10x improvement  
-**vs. IndexedDB Raw**: 8x improvement  
-**vs. gzip**: 2-3x better on repetitive data
-
-## API Reference
-
-### Constructor
-
-```javascript
-const ists = new ISTS(options);
-```
-
-**Options:**
-- `dbName` (string): IndexedDB database name (default: `'ISTS_Storage'`)
-- `storeName` (string): Object store name (default: `'keyval'`)
-- `ledgerKey` (string): Ledger storage key (default: `'ISTS_GLOBAL_LEDGER'`)
-
-### Text Methods
-
-#### `compressText(text)`
-Compress text data using global ledger.
-
-**Returns:**
-```javascript
-{
-  compressed: string,      // Compressed data
-  originalSize: number,    // Original byte size
-  compressedSize: number,  // Compressed byte size
-  savingsPercent: number,  // Compression ratio %
-  tokenCount: number       // Number of tokens
-}
-```
-
-#### `decompressText(compressed)`
-Decompress text data.
-
-**Returns:** `string` - Original text
-
-### Image Methods
-
-#### `compressImage(file, options)`
-Compress image file.
-
-**Parameters:**
-- `file` (File|Blob): Image file
-- `options` (Object):
-  - `quality` (number): WebP quality 0-1 (default: 0.85)
-  - `maxDimension` (number): Max width/height (default: 3840)
-  - `format` (string): Output format (default: 'image/webp')
-
-**Returns:** `Promise<Object>`
-```javascript
-{
-  compressed: string,
-  mime: string,
-  width: number,
-  height: number,
-  originalSize: number,
-  compressedSize: number,
-  savingsPercent: number
-}
-```
-
-#### `decompressImage(compressed, mime)`
-Restore image from compressed data.
-
-**Returns:** `string` - Data URL
-
-### Storage Methods
-
-#### `saveLedger()`
-Save global ledger to IndexedDB.
-
-**Returns:** `Promise<void>`
-
-#### `loadLedger()`
-Load global ledger from IndexedDB.
-
-**Returns:** `Promise<void>`
-
-#### `getStats()`
-Get compression statistics.
-
-**Returns:**
-```javascript
-{
-  entries: number,  // Ledger entry count
-  size: number      // Ledger size in bytes
-}
-```
-
-#### `clearStorage()`
-Clear all stored data and reset ledger.
-
-**Returns:** `Promise<void>`
-
-### Utility Methods
-
-#### `ISTS.formatBytes(bytes)`
-Format byte count to human-readable string.
-
-```javascript
-ISTS.formatBytes(1536); // "1.5 KB"
-```
-
-#### `ISTS.calculateCompressionRatio(original, compressed)`
-Calculate compression ratio percentage.
-
-```javascript
-ISTS.calculateCompressionRatio(1000, 100); // 90
-```
-
-## Use Cases
-
-### Browser-Based Document Editor
-Store large documents with version history without hitting storage limits.
-
-### Offline-First Applications
-Cache API responses and assets efficiently for offline access.
-
-### Image Gallery Apps
-Store high-quality images in browser with minimal storage footprint.
-
-### Chat Applications
-Compress message history and media for local storage.
-
-### Data Visualization Tools
-Cache large datasets for instant loading.
-
-## Architecture
-
-```
-┌─────────────────────────────────────┐
-│         ISTS Protocol API           │
-├─────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐ │
-│  │ Text Engine  │  │ Image Engine │ │
-│  │              │  │              │ │
-│  │ • Tokenizer  │  │ • Canvas API │ │
-│  │ • Ledger Map │  │ • WebP Codec │ │
-│  │ • Vectorizer │  │ • Base64     │ │
-│  └──────────────┘  └──────────────┘ │
-├─────────────────────────────────────┤
-│       LZ-String Compression         │
-├─────────────────────────────────────┤
-│      IndexedDB Storage Layer        │
-└─────────────────────────────────────┘
-```
-
-## Browser Compatibility
-
-- ✅ Chrome/Edge 80+
-- ✅ Firefox 75+
-- ✅ Safari 13+
-- ✅ Opera 67+
-
-**Requirements:**
-- IndexedDB support
-- Canvas API
-- FileReader API (for images)
-
-## Examples
-
-See the [`examples/`](./examples) directory for complete working examples:
-
-- [Text Compression Demo](./examples/text-compression.html)
-- [Image Gallery](./examples/image-gallery.html)
-- [Chat Application](./examples/chat-app.html)
-- [Offline Document Editor](./examples/document-editor.html)
-
-## Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+In the browser the visualizer paints `img.rgba` onto a `<canvas>`, exports a
+real PNG you can download, and reads a PNG back with `PBC.decodeImage(rgba, w, h)`.
 
 ## License
 
-MIT © ISTS Protocol Contributors
-
-## Links
-
-- [Technical Whitepaper](./WHITEPAPER.md)
-- [API Documentation](./docs/API.md)
-- [Changelog](./CHANGELOG.md)
-- [NPM Package](https://www.npmjs.com/package/ists-protocol)
-
-
-## Recognition
-
-If ISTS Protocol helps your project, please consider:
-- ⭐ Starring the repository
-- Sharing with the community
-- Reporting issues and suggesting improvements
-
----
-
-**Built with ❤️ for the web development community**
+MIT — see [LICENSE](LICENSE).

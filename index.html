@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Positional Base-N Compressor</title>
+<style>
+  :root {
+    --paper:   #F3EFE6;
+    --surface: #FBF9F4;
+    --surface-2:#F6F2E9;
+    --border:  #E3DBCC;
+    --ink:     #26231E;
+    --muted:   #736C60;
+    --faint:   #9A9184;
+    --accent:  #C4623F;   /* Claude terracotta */
+    --accent-deep:#9E4A2C;
+    --accent-wash:#F4E3DB;
+    --good:    #4F7A4A;
+    --good-wash:#E4EEDF;
+    --warn:    #B07A2E;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", "Georgia", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --shadow: 0 1px 2px rgba(38,35,30,.05), 0 6px 20px rgba(38,35,30,.06);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#211F1B; --surface:#2A2823; --surface-2:#302D27; --border:#3D3A33;
+      --ink:#EDE8DE; --muted:#B0A99C; --faint:#7E7669;
+      --accent:#E0805C; --accent-deep:#C4623F; --accent-wash:#3A2C25;
+      --good:#8FB884; --good-wash:#2C3A28; --warn:#D6A65C;
+      --shadow: 0 1px 2px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#F3EFE6; --surface:#FBF9F4; --surface-2:#F6F2E9; --border:#E3DBCC;
+    --ink:#26231E; --muted:#736C60; --faint:#9A9184;
+    --accent:#C4623F; --accent-deep:#9E4A2C; --accent-wash:#F4E3DB;
+    --good:#4F7A4A; --good-wash:#E4EEDF; --warn:#B07A2E;
+    --shadow: 0 1px 2px rgba(38,35,30,.05), 0 6px 20px rgba(38,35,30,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper:#211F1B; --surface:#2A2823; --surface-2:#302D27; --border:#3D3A33;
+    --ink:#EDE8DE; --muted:#B0A99C; --faint:#7E7669;
+    --accent:#E0805C; --accent-deep:#C4623F; --accent-wash:#3A2C25;
+    --good:#8FB884; --good-wash:#2C3A28; --warn:#D6A65C;
+    --shadow: 0 1px 2px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    font-size: 16px; letter-spacing: -0.005em;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px 96px; }
+
+  /* ---- header ---- */
+  header { margin-bottom: 28px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 5vw, 42px);
+    line-height: 1.08; margin: 0 0 12px; text-wrap: balance; letter-spacing: -0.02em;
+  }
+  .lede { color: var(--muted); font-size: 17px; max-width: 60ch; margin: 0; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 22px 24px; margin-top: 20px;
+  }
+
+  /* ---- input ---- */
+  textarea {
+    width: 100%; min-height: 120px; resize: vertical;
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; font-family: var(--mono); font-size: 14px; line-height: 1.5;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+  .samples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font: inherit; font-size: 13px; cursor: pointer;
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 13px;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .chip:hover { color: var(--accent-deep); border-color: var(--accent); background: var(--accent-wash); }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn {
+    font: inherit; font-weight: 600; cursor: pointer; color: #fff;
+    background: var(--accent); border: 1px solid var(--accent-deep);
+    border-radius: 10px; padding: 11px 22px; font-size: 15px;
+    transition: background .15s, transform .05s;
+  }
+  .btn:hover { background: var(--accent-deep); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .count { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; }
+
+  /* ---- verify banner ---- */
+  .verify {
+    display: flex; align-items: center; gap: 10px; margin-top: 20px;
+    padding: 12px 18px; border-radius: 10px; font-weight: 600; font-size: 15px;
+    background: var(--good-wash); color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+  }
+  .verify svg { flex: none; }
+
+  /* ---- stats ---- */
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 20px; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 6px; }
+  .stat .value { font-family: var(--serif); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+  .stat .sub { font-size: 12px; color: var(--faint); margin-top: 5px; }
+  .stat.hero .value { color: var(--accent); }
+  .stat.hero.loss .value { color: var(--warn); }
+
+  /* ---- step cards ---- */
+  .step-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .step-num {
+    font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent-deep);
+    background: var(--accent-wash); border-radius: 7px; padding: 3px 9px; flex: none;
+  }
+  .step-head h2 { font-family: var(--serif); font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .step-note { color: var(--muted); font-size: 14.5px; margin: 6px 0 16px; max-width: 64ch; }
+
+  .alphabet { display: flex; flex-wrap: wrap; gap: 7px; }
+  .glyph {
+    display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 13px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px 4px 9px;
+  }
+  .glyph .ch { color: var(--ink); }
+  .glyph .code { color: var(--accent-deep); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 6px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .data {
+    font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--muted);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; overflow-x: auto; word-break: break-word;
+  }
+  .data.codes { color: var(--ink); }
+
+  .formula {
+    font-family: var(--mono); font-size: 15px; color: var(--ink); line-height: 2;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto;
+  }
+  .formula .k { color: var(--accent-deep); font-weight: 600; }
+  .formula .b { color: var(--good); }
+  .formula .cap { display:block; color: var(--faint); font-family: var(--sans); font-size: 12.5px; margin-bottom: 10px; letter-spacing: .02em; }
+  sup { font-size: .72em; }
+
+  .bignum {
+    font-family: var(--mono); font-size: 13px; color: var(--ink); line-height: 1.7;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; word-break: break-all; margin-top: 12px;
+  }
+  .bignum .meta { display:block; color: var(--faint); font-family: var(--sans); font-size: 12.5px; margin-bottom: 8px; }
+  .linkbtn { background: none; border: none; color: var(--accent-deep); font: inherit; font-size: 12.5px;
+    cursor: pointer; text-decoration: underline; padding: 0; margin-top: 8px; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; font-size: 14px; margin-bottom: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .out-label { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 14px 0 6px; }
+
+  .peel { display: grid; gap: 6px; font-family: var(--mono); font-size: 13.5px; }
+  .peel .step { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+  .peel .step .arrow { color: var(--accent); }
+  .peel .step .out { color: var(--ink); background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1px 8px; }
+  .recovered {
+    font-family: var(--mono); font-size: 13px; background: var(--good-wash);
+    border: 1px solid color-mix(in srgb, var(--good) 30%, transparent); border-radius: 10px;
+    padding: 12px 14px; white-space: pre-wrap; word-break: break-word; margin-top: 12px; color: var(--ink);
+  }
+
+  /* ---- limits note ---- */
+  .limits { margin-top: 28px; border-left: 3px solid var(--accent); background: var(--accent-wash);
+    border-radius: 0 12px 12px 0; padding: 18px 22px; }
+  .limits h3 { font-family: var(--serif); font-size: 17px; margin: 0 0 8px; }
+  .limits p { margin: 0 0 8px; font-size: 14.5px; color: var(--ink); }
+  .limits p:last-child { margin-bottom: 0; }
+  .limits code { font-family: var(--mono); font-size: 13px; background: var(--surface); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+
+  /* ---- glyph image ---- */
+  .imgwrap { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .glyph-frame { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; flex: none; }
+  img.glyph { image-rendering: pixelated; display: block; border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+  .imginfo { flex: 1; min-width: 240px; }
+  .imgdecoded .recovered { background: var(--surface-2); border-color: var(--border); }
+  .imgerr { margin-top: 12px; padding: 12px 14px; border-radius: 10px; font-size: 14px;
+    background: var(--accent-wash); color: var(--accent-deep);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  label.filebtn { cursor: pointer; }
+  label.filebtn:hover { color: var(--accent-deep); border-color: var(--accent); background: var(--accent-wash); }
+
+  footer { margin-top: 40px; color: var(--faint); font-size: 13px; text-align: center; }
+  .hidden { display: none; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { animation: rise .35s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Lossless · from scratch · no libraries</p>
+    <h1>Positional Base-N Compressor</h1>
+    <p class="lede">
+      Every character becomes a small code. All the codes fold into
+      <b>one big number</b> through a single formula. That number, written in bytes,
+      is the compressed message — and dividing it back apart rebuilds the text exactly.
+      Watch each step happen below.
+    </p>
+  </header>
+
+  <section class="card">
+    <label class="out-label" for="input" style="margin-top:0">Your message</label>
+    <textarea id="input" spellcheck="false">the rain in spain falls mainly on the plain — the rain in spain falls mainly on the plain</textarea>
+    <div class="samples" id="samples"></div>
+    <div class="row">
+      <button class="btn" id="run">Compress &amp; explain</button>
+      <span class="count" id="count"></span>
+    </div>
+  </section>
+
+  <div id="results" class="hidden">
+    <div class="verify" id="verify"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <section class="card reveal">
+      <div class="step-head"><span class="step-num">Step 1</span><h2>Give each character a code</h2></div>
+      <p class="step-note">We scan the message and collect only the <em>distinct</em> characters it uses — that
+        set is the alphabet. Its size is the <b>base&nbsp;B</b>. Each character gets a code from <code>0</code> to <code>B−1</code>.
+        A smaller alphabet is the whole reason this can compress.</p>
+      <div class="alphabet" id="alphabet"></div>
+    </section>
+
+    <section class="card reveal">
+      <div class="step-head"><span class="step-num">Step 2</span><h2>Rewrite the message as codes</h2></div>
+      <p class="step-note">Now the text is just a list of code numbers — the digits of a number written in base&nbsp;B.</p>
+      <div class="data codes" id="codes"></div>
+    </section>
+
+    <section class="card reveal">
+      <div class="step-head"><span class="step-num">Step 3</span><h2>The formula — fold every code into one number</h2></div>
+      <p class="step-note">Each code is a digit at its own place value. Add them all up and the entire
+        message collapses into a single exact integer — the coefficient <b>N</b>.</p>
+      <div class="formula" id="formula"></div>
+      <div class="bignum" id="bignum"></div>
+    </section>
+
+    <section class="card reveal">
+      <div class="step-head"><span class="step-num">Step 4</span><h2>Store the number as bytes</h2></div>
+      <p class="step-note">Writing <b>N</b> in base 256 (raw bytes) needs only <code>log₂(B)</code> bits per character
+        instead of 8. We add a tiny header — the alphabet and the length — so it can be decoded on its own.
+        The base64 below <em>is</em> the compressed message.</p>
+      <dl class="kv" id="breakdown"></dl>
+      <div class="out-label">Compressed message (base64)</div>
+      <div class="data" id="b64"></div>
+    </section>
+
+    <section class="card reveal">
+      <div class="step-head"><span class="step-num">Step 5</span><h2>Decode — peel the digits back off</h2></div>
+      <p class="step-note">Take the number back apart with repeated <em>divide and remainder</em> by&nbsp;B.
+        Each remainder is the next code; each code maps back to its character. No information is lost.</p>
+      <div class="peel" id="peel"></div>
+      <div class="out-label" style="margin-top:16px">Reconstructed message</div>
+      <div class="recovered" id="recovered"></div>
+    </section>
+
+    <section class="card reveal">
+      <div class="step-head"><span class="step-num">Step 6</span><h2>Store it as an image</h2></div>
+      <p class="step-note">The compressed bytes are painted into pixels — three bytes fill each pixel's
+        red, green and blue. Save the PNG and your message lives as a picture; load that PNG back and the
+        engine reads the pixels, rebuilds the number, and recovers the text exactly. To anything but this
+        engine it's just colored noise.</p>
+      <div class="imgwrap">
+        <div class="glyph-frame"><img class="glyph" id="glyphImg" alt="the compressed message painted as pixels" /></div>
+        <div class="imginfo">
+          <dl class="kv" id="imgbreak"></dl>
+          <div class="row" style="margin-top:2px">
+            <button class="btn" id="download" type="button">Download .png</button>
+            <label class="chip filebtn">Load a .png to decode
+              <input type="file" id="loadimg" accept="image/png" hidden /></label>
+          </div>
+          <div class="imgdecoded" id="imgdecoded"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="limits">
+    <h3>Why it can't compress everything (and can't run forever)</h3>
+    <p>Compression here comes from one honest source: real messages use far fewer than 256 distinct
+      characters, so each one fits in fewer bits. Text with a tiny alphabet (DNA, repeated strings) shrinks a lot;
+      text that already uses many byte-values (random data, dense emoji) barely shrinks — or grows by the header.</p>
+    <p>And you can't feed the output back in to keep shrinking. Once the redundancy is gone there's nothing
+      left to squeeze — a second pass makes it bigger. No lossless method can shrink <em>every</em> input, because
+      distinct messages need distinct outputs and there aren't enough shorter ones to go around
+      (the <b>pigeonhole principle</b>). The <b>limit</b> stat shows how close we get to that theoretical floor.</p>
+  </div>
+
+  <footer>Positional base-N coding · BigInt arithmetic · lossless round-trip verified in your browser</footer>
+</div>
+
+<script src="codec.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const input = $('input');
+
+  const SAMPLES = {
+    'Repeated phrase': 'the rain in spain falls mainly on the plain — the rain in spain falls mainly on the plain',
+    'DNA sequence': (function(){ const b='ACGT'; let s=''; for(let i=0;i<240;i++) s+=b[(i*7+(i>>2))%4]; return s; })(),
+    'All one letter': 'a'.repeat(160),
+    'English paragraph': 'Pack my box with five dozen liquor jugs. How razorback-jumping frogs can level six piqued gymnasts! The five boxing wizards jump quickly.',
+    'Just digits': '31415926535897932384626433832795028841971693993751058209749445923078',
+    'Emoji + text': 'ship it 🚀 ship it 🚀 ship it 🚀 to the moon 🌕 to the moon 🌕'
+  };
+
+  // build sample chips
+  const sampleWrap = $('samples');
+  Object.keys(SAMPLES).forEach(name => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.type = 'button'; b.textContent = name;
+    b.addEventListener('click', () => { input.value = SAMPLES[name]; updateCount(); run(); });
+    sampleWrap.appendChild(b);
+  });
+
+  function updateCount() {
+    const n = Array.from(input.value).length;
+    $('count').textContent = n + (n === 1 ? ' character' : ' characters');
+  }
+  input.addEventListener('input', updateCount);
+
+  // visible form of a character
+  function show(ch) {
+    if (ch === ' ') return '␣';
+    if (ch === '\n') return '↵';
+    if (ch === '\t') return '⇥';
+    return ch;
+  }
+  function esc(s) { return s.replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+  function fmt(n) { return n.toLocaleString('en-US'); }
+  function sup(n) { return '<sup>' + n + '</sup>'; }
+
+  function run() {
+    const text = input.value;
+    const e = PBC.encode(text);
+    const d = PBC.decodeBase64(e.base64);
+    const ok = d.text === text;
+
+    $('results').classList.remove('hidden');
+
+    // ---- verify banner ----
+    const v = $('verify');
+    if (ok) {
+      v.style.cssText = '';
+      v.innerHTML = icon('check') + '<span>Lossless verified — the message was rebuilt byte-for-byte from '
+        + fmt(e.sizes.compressedBytes) + ' bytes.</span>';
+    } else {
+      v.style.background = 'var(--accent-wash)'; v.style.color = 'var(--accent-deep)';
+      v.style.borderColor = 'var(--accent)';
+      v.innerHTML = icon('warn') + '<span>Round-trip mismatch — please report this input.</span>';
+    }
+
+    // ---- stats ----
+    const saved = e.savingsPercent;
+    const isLoss = saved < 0;
+    $('stats').innerHTML = [
+      statTile('Original', fmt(e.sizes.originalBytes), 'bytes'),
+      statTile('Compressed', fmt(e.sizes.compressedBytes), 'bytes'),
+      '<div class="stat hero ' + (isLoss ? 'loss' : '') + '"><div class="label">' +
+        (isLoss ? 'Grew by' : 'Saved') + '</div><div class="value">' +
+        Math.abs(saved).toFixed(1) + '%</div><div class="sub">' +
+        (isLoss ? 'alphabet too large' : 'smaller than original') + '</div></div>',
+      statTile('Rate', e.bitsPerChar.toFixed(2), 'bits / char'),
+      statTile('Limit', e.entropyBitsPerChar.toFixed(2), 'bits / char (Shannon)')
+    ].join('');
+
+    // ---- step 1: alphabet ----
+    const alpha = $('alphabet');
+    alpha.innerHTML = '<div class="glyph" style="border-style:dashed"><span class="ch">base&nbsp;B</span>'
+      + '<span class="code">' + e.base + '</span></div>'
+      + e.symbols.map((s, i) =>
+        '<span class="glyph"><span class="ch">' + esc(show(s)) + '</span><span class="code">' + i + '</span></span>'
+      ).join('');
+
+    // ---- step 2: codes ----
+    const maxCodes = 400;
+    const codesArr = e.codes.slice(0, maxCodes).join('  ');
+    $('codes').innerHTML = esc(codesArr) +
+      (e.codes.length > maxCodes ? '  <span style="color:var(--faint)">… (+' + fmt(e.codes.length - maxCodes) + ' more)</span>' : '');
+
+    // ---- step 3: formula ----
+    const B = e.base, L = e.length;
+    let terms = '';
+    const shownTerms = Math.min(L, 4);
+    for (let i = 0; i < shownTerms; i++) {
+      terms += '<span class="k">' + e.codes[i] + '</span>·<span class="b">' + B + '</span>' + sup(i);
+      if (i < shownTerms - 1) terms += ' + ';
+    }
+    if (L > shownTerms) terms += ' + … + <span class="k">c<sub>' + (L-1) + '</sub></span>·<span class="b">' + B + '</span>' + sup(L-1);
+    $('formula').innerHTML =
+      '<span class="cap">general form &nbsp; N = c₀·B⁰ + c₁·B¹ + c₂·B² + … + c<sub>L−1</sub>·B<sup>L−1</sup>' +
+        ' &nbsp;(B = ' + B + ', L = ' + fmt(L) + ')</span>' +
+      'N = ' + terms;
+
+    // big number
+    const digits = e.digits;
+    const bn = $('bignum');
+    const short = digits.length > 260 ? digits.slice(0, 130) + ' … ' + digits.slice(-130) : digits;
+    bn.innerHTML = '<span class="meta">the coefficient N — one integer with ' + fmt(digits.length) +
+      ' decimal digits</span><span id="bnval">' + short + '</span>';
+    if (digits.length > 260) {
+      const btn = document.createElement('button');
+      btn.className = 'linkbtn'; btn.textContent = 'show the full number';
+      let full = false;
+      btn.addEventListener('click', () => {
+        full = !full;
+        $('bnval').textContent = full ? digits : short;
+        btn.textContent = full ? 'collapse' : 'show the full number';
+      });
+      bn.appendChild(btn);
+    }
+
+    // ---- step 4: storage ----
+    $('breakdown').innerHTML =
+      kv('Alphabet + length (header)', e.sizes.headerBytes + ' bytes') +
+      kv('The number N', e.sizes.Nbytes + ' bytes') +
+      kv('Total compressed', '<b>' + e.sizes.compressedBytes + ' bytes</b>') +
+      kv('Cost per character', e.bitsPerChar.toFixed(2) + ' bits  (raw base-B floor: ' + e.rawBitsPerChar.toFixed(2) + ')');
+    $('b64').textContent = e.base64 || '(empty)';
+
+    // ---- step 5: decode peel ----
+    const peel = $('peel');
+    const show5 = Math.min(L, 6);
+    let rows = '';
+    for (let k = 0; k < show5; k++) {
+      const code = d.codes[k];
+      rows += '<div class="step"><span>N mod ' + B + '</span><span class="arrow">→</span>' +
+        '<span>code <span class="out">' + code + '</span></span><span class="arrow">→</span>' +
+        '<span>char <span class="out">' + esc(show(e.symbols[code])) + '</span></span>' +
+        '<span style="color:var(--faint)">then N = N ÷ ' + B + '</span></div>';
+    }
+    if (L > show5) rows += '<div class="step" style="color:var(--faint)">… ' + fmt(L - show5) + ' more digits peeled the same way</div>';
+    peel.innerHTML = rows || '<div class="step" style="color:var(--faint)">(empty message)</div>';
+    $('recovered').textContent = d.text || '(empty)';
+
+    // ---- step 6: image ----
+    renderImage(e);
+
+    // subtle reveal
+    document.querySelectorAll('#results .reveal').forEach((el, i) => {
+      el.style.animation = 'none'; void el.offsetWidth;
+      el.style.animation = '';
+    });
+  }
+
+  function statTile(label, value, sub) {
+    return '<div class="stat"><div class="label">' + label + '</div><div class="value">' +
+      value + '</div><div class="sub">' + sub + '</div></div>';
+  }
+  function kv(k, v) { return '<dt>' + k + '</dt><dd>' + v + '</dd>'; }
+  function icon(kind) {
+    if (kind === 'check') return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+  }
+
+  // ---- image storage ----
+  let lastPng = null;
+
+  function renderImage(e) {
+    const img = e.image || PBC.payloadToImage(e.payload);
+
+    const cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    const ctx = cv.getContext('2d');
+    const id = ctx.createImageData(img.width, img.height);
+    id.data.set(img.rgba);
+    ctx.putImageData(id, 0, 0);
+
+    const url = cv.toDataURL('image/png');
+    lastPng = url;
+
+    // measure the real PNG file size from the data URL
+    const b64 = url.slice(url.indexOf(',') + 1);
+    const pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    const pngBytes = Math.floor(b64.length * 3 / 4) - pad;
+
+    // display, magnified with crisp pixels
+    const el = $('glyphImg');
+    const scale = Math.max(1, Math.round(220 / Math.max(img.width, img.height)));
+    el.src = url;
+    el.width = img.width * scale;
+    el.height = img.height * scale;
+
+    const orig = e.sizes.originalBytes;
+    const delta = orig ? ((pngBytes / orig - 1) * 100) : 0;
+    const note = pngBytes <= orig
+      ? '<span style="color:var(--good)">smaller than the original text</span>'
+      : 'the PNG format adds ~100 bytes of fixed overhead — it wins on longer text, where its own lossless pass compounds ours';
+
+    $('imgbreak').innerHTML =
+      kv('Dimensions', img.width + ' × ' + img.height + ' px') +
+      kv('Pixels used', fmt(img.pixels) + '  (3 bytes each)') +
+      kv('Payload painted', fmt(e.sizes.compressedBytes) + ' bytes') +
+      kv('PNG file on disk', '<b>' + fmt(pngBytes) + ' bytes</b>') +
+      '<dt>vs. original</dt><dd style="font-family:var(--sans)">' + note + '</dd>';
+
+    $('imgdecoded').innerHTML = '';
+  }
+
+  function showDecoded(text, matches, error) {
+    const el = $('imgdecoded');
+    if (error) { el.innerHTML = '<div class="imgerr">' + esc(error) + '</div>'; return; }
+    el.innerHTML =
+      '<div class="out-label" style="margin-top:18px">Decoded from the loaded image</div>' +
+      '<div class="recovered">' + (esc(text) || '(empty)') + '</div>' +
+      (matches
+        ? '<div class="verify" style="margin-top:10px">' + icon('check') +
+          '<span>Byte-for-byte match with the message above ✓</span></div>'
+        : '');
+  }
+
+  $('download').addEventListener('click', () => {
+    if (!lastPng) return;
+    const a = document.createElement('a');
+    a.href = lastPng; a.download = 'glyph-message.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  $('loadimg').addEventListener('change', ev => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(im, 0, 0);
+      const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      URL.revokeObjectURL(url);
+      try {
+        const decoded = PBC.decodeImage(data, cv.width, cv.height);
+        showDecoded(decoded.text, decoded.text === input.value);
+      } catch (err) {
+        showDecoded('', false, err.message);
+      }
+      ev.target.value = '';
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); showDecoded('', false, 'Could not read that image file.'); };
+    im.src = url;
+  });
+
+  $('run').addEventListener('click', run);
+  updateCount();
+  run();
+})();
+</script>
+</body>
+</html>
