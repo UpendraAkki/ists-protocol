@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Video ⇄ Image Vault</title>
+<style>
+  :root {
+    --paper:#F3EFE6; --surface:#FBF9F4; --surface-2:#F6F2E9; --border:#E3DBCC;
+    --ink:#26231E; --muted:#736C60; --faint:#9A9184;
+    --accent:#C4623F; --accent-deep:#9E4A2C; --accent-wash:#F4E3DB;
+    --good:#4F7A4A; --good-wash:#E4EEDF; --warn:#B07A2E; --warn-wash:#F5EAD6;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", "Georgia", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --shadow: 0 1px 2px rgba(38,35,30,.05), 0 6px 20px rgba(38,35,30,.06);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#211F1B; --surface:#2A2823; --surface-2:#302D27; --border:#3D3A33;
+      --ink:#EDE8DE; --muted:#B0A99C; --faint:#7E7669;
+      --accent:#E0805C; --accent-deep:#C4623F; --accent-wash:#3A2C25;
+      --good:#8FB884; --good-wash:#2C3A28; --warn:#D6A65C; --warn-wash:#38301F;
+      --shadow: 0 1px 2px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#F3EFE6; --surface:#FBF9F4; --surface-2:#F6F2E9; --border:#E3DBCC;
+    --ink:#26231E; --muted:#736C60; --faint:#9A9184;
+    --accent:#C4623F; --accent-deep:#9E4A2C; --accent-wash:#F4E3DB;
+    --good:#4F7A4A; --good-wash:#E4EEDF; --warn:#B07A2E; --warn-wash:#F5EAD6;
+    --shadow: 0 1px 2px rgba(38,35,30,.05), 0 6px 20px rgba(38,35,30,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper:#211F1B; --surface:#2A2823; --surface-2:#302D27; --border:#3D3A33;
+    --ink:#EDE8DE; --muted:#B0A99C; --faint:#7E7669;
+    --accent:#E0805C; --accent-deep:#C4623F; --accent-wash:#3A2C25;
+    --good:#8FB884; --good-wash:#2C3A28; --warn:#D6A65C; --warn-wash:#38301F;
+    --shadow: 0 1px 2px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.28);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans);
+    line-height:1.55; font-size:16px; letter-spacing:-0.005em; }
+  .wrap { max-width:900px; margin:0 auto; padding:40px 24px 96px; }
+
+  .backlink { display:inline-flex; align-items:center; gap:6px; color:var(--muted);
+    text-decoration:none; font-size:14px; margin-bottom:20px; }
+  .backlink:hover { color:var(--accent-deep); }
+
+  .eyebrow { font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent-deep); font-weight:600; margin:0 0 10px; }
+  h1 { font-family:var(--serif); font-weight:600; font-size:clamp(30px,5vw,42px);
+    line-height:1.08; margin:0 0 12px; text-wrap:balance; letter-spacing:-0.02em; }
+  .lede { color:var(--muted); font-size:17px; max-width:62ch; margin:0; }
+  .lede b { color:var(--ink); font-weight:600; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:24px; margin-top:20px; }
+  .panel-head { display:flex; align-items:baseline; gap:12px; margin-bottom:4px; }
+  .panel-num { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--accent-deep);
+    background:var(--accent-wash); border-radius:7px; padding:3px 10px; flex:none; }
+  .panel-head h2 { font-family:var(--serif); font-size:22px; font-weight:600; margin:0; letter-spacing:-0.01em; }
+  .panel-note { color:var(--muted); font-size:14.5px; margin:6px 0 18px; max-width:64ch; }
+
+  .drop { border:1.5px dashed var(--border); border-radius:12px; background:var(--surface-2);
+    padding:22px; text-align:center; transition:border-color .15s, background .15s; }
+  .drop.drag { border-color:var(--accent); background:var(--accent-wash); }
+  .drop p { margin:0 0 12px; color:var(--muted); font-size:14.5px; }
+
+  .btn { font:inherit; font-weight:600; cursor:pointer; color:#fff; background:var(--accent);
+    border:1px solid var(--accent-deep); border-radius:10px; padding:11px 22px; font-size:15px;
+    transition:background .15s, transform .05s; }
+  .btn:hover { background:var(--accent-deep); }
+  .btn:active { transform:translateY(1px); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn.ghost { background:var(--surface); color:var(--accent-deep); }
+  .btn.ghost:hover { background:var(--accent-wash); }
+  .btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+
+  .media { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:18px; }
+  video { max-width:280px; width:100%; border-radius:10px; border:1px solid var(--border);
+    background:#000; display:block; }
+  img.vault { image-rendering:auto; max-width:280px; width:100%; border-radius:10px;
+    border:1px solid var(--border); display:block; }
+  .info { flex:1; min-width:240px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:5px 18px; font-size:14px; margin:0 0 14px; }
+  .kv dt { color:var(--muted); }
+  .kv dd { margin:0; font-family:var(--mono); font-variant-numeric:tabular-nums; word-break:break-word; }
+
+  .badge { display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border-radius:9px;
+    font-weight:600; font-size:14px; margin-top:4px; }
+  .badge.ok { background:var(--good-wash); color:var(--good);
+    border:1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+  .badge.warn { background:var(--warn-wash); color:var(--warn);
+    border:1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+  .badge.err { background:var(--accent-wash); color:var(--accent-deep);
+    border:1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  .badge svg { flex:none; }
+
+  .status { font-size:13.5px; color:var(--muted); margin-top:10px; min-height:18px; }
+  .hidden { display:none; }
+  .out-label { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 8px; }
+
+  .note { margin-top:28px; border-left:3px solid var(--accent); background:var(--accent-wash);
+    border-radius:0 12px 12px 0; padding:18px 22px; }
+  .note h3 { font-family:var(--serif); font-size:17px; margin:0 0 8px; }
+  .note p { margin:0 0 8px; font-size:14.5px; color:var(--ink); }
+  .note p:last-child { margin-bottom:0; }
+  .note code { font-family:var(--mono); font-size:13px; background:var(--surface); padding:1px 5px;
+    border-radius:4px; border:1px solid var(--border); }
+  footer { margin-top:40px; color:var(--faint); font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="backlink" href="index.html">← Text compressor</a>
+  <p class="eyebrow">Lossless container · any format · fast (linear)</p>
+  <h1>Video ⇄ Image Vault</h1>
+  <p class="lede">
+    Drop in a video and its raw bytes are <b>painted into a single PNG</b> — three bytes to a pixel.
+    Load that PNG back and the exact video returns, ready to play. Same idea as the text page's pixel
+    storage, applied to a whole file. To anything but this engine, the image is colored static.
+  </p>
+
+  <!-- Panel 1: video -> image -->
+  <section class="card">
+    <div class="panel-head"><span class="panel-num">1</span><h2>Video → Image</h2></div>
+    <p class="panel-note">Pick a video file (or generate a short test clip). We read every byte and paint it
+      into an image, then immediately read it back to prove nothing was lost.</p>
+
+    <div class="drop" id="drop1">
+      <p>Drop a video here, or</p>
+      <div class="row" style="justify-content:center">
+        <label class="btn" style="cursor:pointer">Choose video<input type="file" id="videoInput" accept="video/*" hidden /></label>
+        <button class="btn ghost" id="genClip" type="button">Generate a test clip</button>
+      </div>
+    </div>
+
+    <div class="status" id="status1"></div>
+
+    <div class="media hidden" id="src1">
+      <video id="srcVideo" controls muted playsinline></video>
+      <div class="info">
+        <dl class="kv" id="srcInfo"></dl>
+        <button class="btn" id="toImage" type="button">Paint into image →</button>
+      </div>
+    </div>
+
+    <div class="media hidden" id="out1">
+      <img class="vault" id="vaultImg" alt="video bytes painted as pixels" />
+      <div class="info">
+        <div class="out-label">The vault image</div>
+        <dl class="kv" id="imgInfo"></dl>
+        <div id="verify1"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="downloadImg" type="button">Download .png</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel 2: image -> video -->
+  <section class="card">
+    <div class="panel-head"><span class="panel-num">2</span><h2>Image → Video</h2></div>
+    <p class="panel-note">Load a vault PNG (the one you just downloaded, or any made by this engine). The engine
+      reads the pixels, lifts the bytes back out, and rebuilds the exact video file.</p>
+
+    <div class="drop" id="drop2">
+      <p>Drop a vault PNG here, or</p>
+      <div class="row" style="justify-content:center">
+        <label class="btn" style="cursor:pointer">Choose image<input type="file" id="imageInput" accept="image/png" hidden /></label>
+        <button class="btn ghost" id="useLast" type="button" disabled>Use the image from step 1</button>
+      </div>
+    </div>
+
+    <div class="status" id="status2"></div>
+
+    <div class="media hidden" id="out2">
+      <video id="outVideo" controls muted playsinline></video>
+      <div class="info">
+        <div class="out-label">Rebuilt video</div>
+        <dl class="kv" id="outInfo"></dl>
+        <div class="row" style="margin-top:6px">
+          <button class="btn" id="downloadVid" type="button">Download video</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="note">
+    <h3>Straight talk on size</h3>
+    <p>This is a <b>lossless container</b>, not a magic shrinker. A modern <code>.mp4</code> or
+      <code>.webm</code> is already compressed — its bytes are almost random, so no lossless method can pack
+      them smaller (the <b>pigeonhole principle</b>). Expect the PNG to be about the same size as the video,
+      plus a little overhead. The panels show the real numbers, honestly.</p>
+    <p>Making it genuinely <b>smaller</b> means <b>lossy</b> compression — dropping resolution, frame rate, or
+      detail the eye won't miss. That's exactly what video codecs already do. If you want that, I can add a
+      "shrink" mode next that re-encodes the video at a smaller size before storing it.</p>
+    <p>Size is bounded by your browser's memory and maximum canvas area, so very large videos may not fit.</p>
+  </div>
+
+  <footer>File bytes → pixels → PNG · rebuilt in your browser · nothing uploaded anywhere</footer>
+</div>
+
+<script src="filecodec.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  let source = null;        // { bytes: Uint8Array, name, mime, url }
+  let lastPngBlob = null;   // the vault PNG from step 1
+  let rebuilt = null;       // { url, name, mime, size }
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+  function icon(kind) {
+    if (kind === 'check') return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+    return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+  }
+  const MAX_PIXELS = 40_000_000; // ~120 MB of data; guards canvas limits
+
+  // ---------- load a source video ----------
+  async function setSource(file) {
+    if (!file) return;
+    $('status1').textContent = 'Reading ' + file.name + ' …';
+    const buf = await file.arrayBuffer();
+    if (source && source.url) URL.revokeObjectURL(source.url);
+    source = { bytes: new Uint8Array(buf), name: file.name, mime: file.type || 'video/mp4' };
+    source.url = URL.createObjectURL(file);
+
+    $('srcVideo').src = source.url;
+    $('srcInfo').innerHTML =
+      kv('Name', escapeHtml(source.name)) +
+      kv('Type', escapeHtml(source.mime)) +
+      kv('Size', fmtBytes(source.bytes.length));
+    $('src1').classList.remove('hidden');
+    $('status1').textContent = '';
+  }
+
+  // ---------- video -> image ----------
+  async function paintToImage() {
+    if (!source) return;
+    const pixelsNeeded = Math.ceil((source.bytes.length + 64) / 3);
+    if (pixelsNeeded > MAX_PIXELS) {
+      $('status1').innerHTML = '<span class="badge err">' + icon('warn') +
+        'This video is too large for an in-browser canvas (' + fmtBytes(source.bytes.length) + ').</span>';
+      return;
+    }
+    $('toImage').disabled = true;
+    $('status1').textContent = 'Painting bytes into pixels …';
+    await new Promise(r => setTimeout(r, 20));
+
+    const img = FileVault.fileToImage(source.bytes, source.name, source.mime);
+    const cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    const ctx = cv.getContext('2d');
+    const id = ctx.createImageData(img.width, img.height);
+    id.data.set(img.rgba);
+    ctx.putImageData(id, 0, 0);
+
+    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    lastPngBlob = blob;
+    if ($('vaultImg').src) URL.revokeObjectURL($('vaultImg').src);
+    const url = URL.createObjectURL(blob);
+    $('vaultImg').src = url;
+
+    const orig = source.bytes.length;
+    const png = blob.size;
+    const ratio = orig ? ((png / orig - 1) * 100) : 0;
+    $('imgInfo').innerHTML =
+      kv('Dimensions', img.width + ' × ' + img.height + ' px') +
+      kv('Pixels', img.pixels.toLocaleString('en-US')) +
+      kv('Video bytes', fmtBytes(orig)) +
+      kv('PNG on disk', fmtBytes(png)) +
+      kv('vs. video', (ratio >= 0 ? '+' : '') + ratio.toFixed(1) + '%');
+
+    // self-verify: decode the PNG we just made and compare byte-for-byte
+    $('status1').textContent = 'Verifying the image rebuilds the video …';
+    const ok = await verifyImage(blob, source.bytes, source.name, source.mime);
+    $('verify1').innerHTML = ok
+      ? '<div class="badge ok">' + icon('check') + 'Lossless verified — the image rebuilds the video exactly (' + fmtBytes(orig) + ').</div>'
+      : '<div class="badge err">' + icon('warn') + 'Verification mismatch — please report this file.</div>';
+
+    $('out1').classList.remove('hidden');
+    $('useLast').disabled = false;
+    $('toImage').disabled = false;
+    $('status1').textContent = '';
+  }
+
+  function verifyImage(pngBlob, origBytes, name, mime) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(pngBlob);
+      const im = new Image();
+      im.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(im, 0, 0);
+        const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        URL.revokeObjectURL(url);
+        try {
+          const out = FileVault.imageToFile(data, cv.width, cv.height);
+          let same = out.bytes.length === origBytes.length && out.name === name && out.mime === mime;
+          if (same) for (let i = 0; i < origBytes.length; i++) if (out.bytes[i] !== origBytes[i]) { same = false; break; }
+          resolve(same);
+        } catch (e) { resolve(false); }
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+      im.src = url;
+    });
+  }
+
+  // ---------- image -> video ----------
+  function rebuildFromImage(file) {
+    $('status2').textContent = 'Reading the image …';
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(im, 0, 0);
+      const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      URL.revokeObjectURL(url);
+      try {
+        const out = FileVault.imageToFile(data, cv.width, cv.height);
+        const blob = new Blob([out.bytes], { type: out.mime || 'video/mp4' });
+        if (rebuilt && rebuilt.url) URL.revokeObjectURL(rebuilt.url);
+        rebuilt = { url: URL.createObjectURL(blob), name: out.name, mime: out.mime, size: out.bytes.length };
+        $('outVideo').src = rebuilt.url;
+        $('outInfo').innerHTML =
+          kv('Name', escapeHtml(out.name)) +
+          kv('Type', escapeHtml(out.mime)) +
+          kv('Size', fmtBytes(out.bytes.length));
+        $('out2').classList.remove('hidden');
+        $('status2').innerHTML = '<div class="badge ok">' + icon('check') + 'Rebuilt from ' +
+          cv.width + '×' + cv.height + ' pixels.</div>';
+      } catch (e) {
+        $('status2').innerHTML = '<div class="badge err">' + icon('warn') + escapeHtml(e.message) + '</div>';
+      }
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); $('status2').innerHTML =
+      '<div class="badge err">' + icon('warn') + 'Could not read that image.</div>'; };
+    im.src = url;
+  }
+
+  // ---------- generate a real test clip (canvas + MediaRecorder) ----------
+  async function generateClip() {
+    if (typeof MediaRecorder === 'undefined') {
+      $('status1').innerHTML = '<div class="badge warn">' + icon('warn') +
+        'This browser can\'t record a test clip — please choose a video file instead.</div>';
+      return;
+    }
+    $('genClip').disabled = true;
+    $('status1').textContent = 'Recording a 2-second test clip …';
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 150;
+    const ctx = cv.getContext('2d');
+    const stream = cv.captureStream(25);
+    const mime = 'video/webm';
+    const rec = new MediaRecorder(stream, { mimeType: mime });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(r => { rec.onstop = r; });
+    rec.start();
+
+    // Drive frames on a timer, not requestAnimationFrame, so recording still
+    // advances when the tab is in the background (rAF is throttled there).
+    let frame = 0;
+    const draw = () => {
+      const t = frame / 25; frame++;
+      ctx.fillStyle = '#26231E'; ctx.fillRect(0, 0, 200, 150);
+      ctx.fillStyle = '#C4623F';
+      const x = 100 + 70 * Math.sin(t * 3), y = 75 + 45 * Math.cos(t * 2.2);
+      ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#F3EFE6'; ctx.font = '16px system-ui';
+      ctx.fillText('test clip  ' + t.toFixed(1) + 's', 12, 26);
+    };
+    draw();
+    const drawTimer = setInterval(draw, 40);
+    await new Promise(res => setTimeout(res, 2000));
+    clearInterval(drawTimer);
+    rec.stop();
+    await stopped;
+
+    $('genClip').disabled = false;
+    const blob = new Blob(chunks, { type: mime });
+    if (!blob.size) {
+      $('status1').innerHTML = '<div class="badge warn">' + icon('warn') +
+        'The recorder produced no data here — please choose a real video file instead.</div>';
+      return;
+    }
+    await setSource(new File([blob], 'test-clip.webm', { type: mime }));
+  }
+
+  // ---------- helpers + wiring ----------
+  function kv(k, v) { return '<dt>' + k + '</dt><dd>' + v + '</dd>'; }
+  function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+
+  $('videoInput').addEventListener('change', e => setSource(e.target.files[0]));
+  $('imageInput').addEventListener('change', e => { if (e.target.files[0]) rebuildFromImage(e.target.files[0]); });
+  $('genClip').addEventListener('click', generateClip);
+  $('toImage').addEventListener('click', paintToImage);
+  $('useLast').addEventListener('click', () => {
+    if (lastPngBlob) rebuildFromImage(new File([lastPngBlob], 'vault.png', { type: 'image/png' }));
+  });
+  $('downloadImg').addEventListener('click', () => {
+    if (!lastPngBlob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(lastPngBlob);
+    a.download = (source ? source.name.replace(/\.[^.]+$/, '') : 'vault') + '.png';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  });
+  $('downloadVid').addEventListener('click', () => {
+    if (!rebuilt) return;
+    const a = document.createElement('a');
+    a.href = rebuilt.url; a.download = rebuilt.name || 'video';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // drag & drop
+  function wireDrop(el, handler, accept) {
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('drag');
+      const f = e.dataTransfer.files[0];
+      if (f && f.type.startsWith(accept)) handler(f);
+    });
+  }
+  wireDrop($('drop1'), setSource, 'video');
+  wireDrop($('drop2'), rebuildFromImage, 'image');
+})();
+</script>
+</body>
+</html>
