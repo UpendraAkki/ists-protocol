@@ -9,9 +9,6 @@
 **Live demo (GitHub Pages, testing version — `v0.9.0-beta`):**
 👉 **https://upendraakki.github.io/ists-protocol/**
 
-**Video walkthrough:**
-[![ISTS demo video](https://img.youtube.com/vi/qFh1FceuZAc/maxresdefault.jpg)](https://youtu.be/qFh1FceuZAc)
-
 ---
 
 ## What "ISTS" stands for
