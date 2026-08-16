@@ -1,0 +1,62 @@
+name: Deploy static site to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify (fuzz-tested lossless round trips)
+        run: |
+          node test.js
+          node lzw.test.js
+          node pack.test.js
+          node filecodec.test.js
+
+      - name: Regenerate sample PNGs
+        run: node scripts/generate-samples.js
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html compress.html video.html _site/
+          cp codec.js lzw.js range.js pack.js filecodec.js _site/
+          cp -r docs _site/docs
+          cp README.md _site/README.md
+          cp LICENSE _site/LICENSE || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

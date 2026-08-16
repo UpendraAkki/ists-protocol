@@ -1,17 +1,26 @@
 {
-  "name": "positional-base-n-compressor",
-  "version": "1.0.0",
-  "description": "From-scratch lossless text compressor: encode characters, fold them into one big number, store it in fewer bytes. Zero dependencies.",
-  "main": "codec.js",
-  "module": "codec.js",
+  "name": "ists-protocol",
+  "version": "0.9.0-beta",
+  "description": "ISTS — Image-Serialized Transport & Storage Protocol. From-scratch lossless compressors (base-N, LZW, order-1 arithmetic, smart packer) plus a file⇄PNG codec. Zero runtime dependencies.",
+  "main": "pack.js",
+  "module": "pack.js",
   "files": [
     "codec.js",
+    "lzw.js",
+    "range.js",
+    "pack.js",
+    "filecodec.js",
     "index.html",
+    "compress.html",
+    "video.html",
+    "scripts/generate-samples.js",
+    "docs/samples",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test.js",
+    "test": "node test.js && node lzw.test.js && node pack.test.js && node filecodec.test.js",
+    "samples": "node scripts/generate-samples.js",
     "start": "python -m http.server 8000"
   },
   "keywords": [
@@ -22,6 +31,13 @@
     "positional-encoding",
     "bigint",
     "entropy",
+    "lzw",
+    "arithmetic-coding",
+    "range-coder",
+    "png",
+    "file-to-image",
+    "steganography",
+    "ists",
     "zero-dependencies"
   ],
   "author": "Upendra Gariminti",

@@ -1,0 +1,54 @@
+[
+  {
+    "key": "text-lorem",
+    "file": "lorem.txt",
+    "original": 11280,
+    "packed": 3560,
+    "method": "lzw",
+    "ratio": 0.31560283687943264,
+    "savings": 68,
+    "pngBytes": 3486,
+    "pngWidth": 35,
+    "pngHeight": 35,
+    "losslessRoundTrip": true
+  },
+  {
+    "key": "text-book",
+    "file": "tale.txt",
+    "original": 18400,
+    "packed": 4034,
+    "method": "lzw",
+    "ratio": 0.2192391304347826,
+    "savings": 78,
+    "pngBytes": 3974,
+    "pngWidth": 37,
+    "pngHeight": 37,
+    "losslessRoundTrip": true
+  },
+  {
+    "key": "json-users",
+    "file": "users.json",
+    "original": 12018,
+    "packed": 3384,
+    "method": "o1",
+    "ratio": 0.28157763354967547,
+    "savings": 72,
+    "pngBytes": 4029,
+    "pngWidth": 34,
+    "pngHeight": 34,
+    "losslessRoundTrip": true
+  },
+  {
+    "key": "dna-sequence",
+    "file": "dna.txt",
+    "original": 20000,
+    "packed": 143,
+    "method": "o1",
+    "ratio": 0.00715,
+    "savings": 99,
+    "pngBytes": 314,
+    "pngWidth": 8,
+    "pngHeight": 8,
+    "losslessRoundTrip": true
+  }
+]
